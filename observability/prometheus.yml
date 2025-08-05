@@ -1,0 +1,48 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+scrape_configs:
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: "auth-service"
+    static_configs:
+      - targets: ["auth-service:8001"]
+
+  - job_name: "user-service"
+    static_configs:
+      - targets: ["user-service:8002"]
+
+  - job_name: "property-service"
+    static_configs:
+      - targets: ["property-service:8003"]
+
+  - job_name: "booking-service"
+    static_configs:
+      - targets: ["booking-service:8004"]
+
+  - job_name: "transaction-service"
+    static_configs:
+      - targets: ["transaction-service:8005"]
+
+  - job_name: "notification-service"
+    static_configs:
+      - targets: ["notification-service:8006"]
+
+  - job_name: "feedback-service"
+    static_configs:
+      - targets: ["feedback-service:8007"]
+
+  - job_name: "search-service"
+    static_configs:
+      - targets: ["search-service:8008"]
+
+  - job_name: "external-comm-service"
+    static_configs:
+      - targets: ["external-comm-service:8009"]

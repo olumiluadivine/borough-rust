@@ -1,0 +1,36 @@
+[package]
+name = "shared"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+actix-web = { workspace = true }
+# Database
+sqlx = { workspace = true }
+redis = { workspace = true }
+deadpool-redis = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Utilities
+uuid = { workspace = true }
+chrono = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+lapin = { workspace = true }
+
+# Configuration
+config = { workspace = true }
+tokio = { workspace = true }
+tokio-amqp = { workspace = true }
+
+# Security
+jsonwebtoken = { workspace = true }
+argon2 = { workspace = true }
+
+# Additional dependencies
+rand = { workspace = true }
+hex = { workspace = true }
+futures = { workspace = true }

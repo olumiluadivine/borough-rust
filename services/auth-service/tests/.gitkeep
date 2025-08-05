@@ -1,0 +1,7 @@
+# Integration tests for auth service
+
+# This directory will contain integration tests
+# Example test files:
+# - auth_api_tests.rs
+# - otp_verification_tests.rs
+# - database_integration_tests.rs

@@ -1,0 +1,9 @@
+# SQLx migration scripts for auth service
+
+# This directory will contain database migration files
+# Example:
+# - 001_create_users_table.sql
+# - 002_create_auth_tokens_table.sql
+# - 003_create_otp_verifications_table.sql
+
+# Run migrations with: sqlx migrate run

@@ -1,0 +1,12 @@
+# Jaeger Configuration
+# This file contains configuration for Jaeger tracing
+
+# For more configuration options, see:
+# https://www.jaegertracing.io/docs/1.50/deployment/
+
+# Environment variables for Jaeger configuration:
+# JAEGER_AGENT_HOST: jaeger
+# JAEGER_AGENT_PORT: 6831
+# JAEGER_SERVICE_NAME: <service-name>
+# JAEGER_SAMPLER_TYPE: const
+# JAEGER_SAMPLER_PARAM: 1

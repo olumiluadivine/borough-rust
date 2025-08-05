@@ -1,0 +1,42 @@
+﻿[package]
+name = "booking-service"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+shared = { path = "../../shared" }
+
+# Web Framework
+actix-web = { workspace = true }
+actix-cors = { workspace = true }
+tokio = { workspace = true }
+
+# gRPC
+tonic = { workspace = true }
+prost = { workspace = true }
+
+# Database
+sqlx = { workspace = true }
+redis = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Utilities
+uuid = { workspace = true }
+chrono = { workspace = true }
+env_logger = { workspace = true }
+log = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+
+# Configuration
+config = { workspace = true }
+dotenv = { workspace = true }
+
+# Async Runtime
+futures = { workspace = true }
+
+[build-dependencies]
+tonic-build = { workspace = true }

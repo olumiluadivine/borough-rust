@@ -1,0 +1,51 @@
+[package]
+name = "auth-service"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+shared = { path = "../../shared" }
+
+# Web Framework
+actix-web = { workspace = true }
+futures-util = { workspace = true }
+
+# gRPC
+tonic = { workspace = true }
+lapin = { workspace = true }
+tokio-amqp = { workspace = true }
+
+# Database
+sqlx = { workspace = true }
+redis = { workspace = true }
+deadpool-redis = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Utilities
+uuid = { workspace = true }
+chrono = { workspace = true }
+env_logger = { workspace = true }
+log = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+
+# Configuration
+config = { workspace = true }
+dotenv = { workspace = true }
+
+# Async Runtime
+futures = { workspace = true }
+
+# Additional dependencies
+async-trait = "0.1.88"
+bcrypt = "0.17.0"
+jsonwebtoken = "9.3.1"
+rand = "0.9.2"
+hex = "0.4.3"
+num_cpus = "1.17"
+
+[build-dependencies]
+tonic-build = { workspace = true }
