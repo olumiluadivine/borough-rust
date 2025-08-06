@@ -5,12 +5,18 @@ use crate::interface::middleware::rate_limiter::RateLimiter;
 use crate::interface::middleware::request_logger::RequestLogger;
 use actix_web::{middleware, web, App, HttpServer};
 use std::time::Duration;
+use tokio::sync::broadcast;
+use shared::events::{ExchangeType, RoutingKey};
+use shared::utils::messaging::MessageBroker;
+use crate::infrastructure::messaging::notification_consumer::NotificationConsumer;
+use crate::infrastructure::messaging::notification_publisher::NotificationPublisher;
 
 pub mod controller_setup;
 pub mod database_setup;
 pub mod env_setup;
 pub mod redis_setup;
 pub mod service_setup;
+pub mod queue_setup;
 
 pub async fn start_http_server(config: AppConfig, controllers: Controllers) -> std::io::Result<()> {
     let server_config = config.server.clone();

@@ -10,12 +10,15 @@ pub struct CacheService {
 }
 
 impl CacheService {
+    fn get_client(&self) -> &Pool {
+        self.redis_client.as_ref()
+    }
     pub fn new(redis_client: Arc<Pool>, config: RedisFigureConfig) -> Self {
         Self { redis_client, config }
     }
 
     async fn get_connection(&self) -> SystemResult<deadpool_redis::Connection> {
-        self.redis_client
+        self.get_client()
             .get()
             .await
             .map_err(|e| SystemError::RedisError(e.to_string()))

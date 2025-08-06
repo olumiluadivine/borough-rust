@@ -13,6 +13,7 @@ futures-util = { workspace = true }
 # gRPC
 tonic = { workspace = true }
 lapin = { workspace = true }
+tokio = { workspace = true }
 tokio-amqp = { workspace = true }
 
 # Database

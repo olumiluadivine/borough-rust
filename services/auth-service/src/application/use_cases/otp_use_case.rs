@@ -35,7 +35,7 @@ impl OtpUseCase {
 
         // Check rate limiting
         debug!("Checking OTP rate limit for identifier: {}", request.identifier);
-        if let Err(e) = self.otp_cache.check_otp_rate_limit(&request.identifier).await {
+        if let Err(e) = self.otp_cache.check_otp_rate_limit(request.identifier.as_ref()).await {
             warn!("Rate limit exceeded for identifier: {}. Error: {:?}", request.identifier, e);
             return Err(e);
         }
@@ -45,14 +45,14 @@ impl OtpUseCase {
         match request.identifier_type {
             IdentifierType::Email => {
                 debug!("Validating email format for identifier: {}", request.identifier);
-                if let Err(e) = self.validate_email_format(&request.identifier) {
+                if let Err(e) = self.validate_email_format(request.identifier.as_ref()) {
                     error!("Invalid email format for {}: {:?}", request.identifier, e);
                     return Err(e);
                 }
             }
             IdentifierType::Phone => {
                 debug!("Validating phone format for identifier: {}", request.identifier);
-                if let Err(e) = self.validate_phone_format(&request.identifier) {
+                if let Err(e) = self.validate_phone_format(request.identifier.as_ref()) {
                     error!("Invalid phone format for {}: {:?}", request.identifier, e);
                     return Err(e);
                 }
@@ -65,7 +65,7 @@ impl OtpUseCase {
 
         // Store OTP in cache
         debug!("Storing OTP in cache for identifier: {}", request.identifier);
-        if let Err(e) = self.otp_cache.store_otp(&request.identifier, &otp_code, self.otp_expiry_minutes).await {
+        if let Err(e) = self.otp_cache.store_otp(request.identifier.as_ref(), otp_code.as_ref(), self.otp_expiry_minutes).await {
             error!("Failed to store OTP in cache for {}: {:?}", request.identifier, e);
             return Err(e);
         }
@@ -73,7 +73,7 @@ impl OtpUseCase {
 
         // Send OTP via notification service
         info!("Sending OTP notification to identifier: {}", request.identifier);
-        if let Err(e) = self.send_otp_notification(&request, &otp_code).await {
+        if let Err(e) = self.send_otp_notification(&request, otp_code.as_ref()).await {
             error!("Failed to send OTP notification to {}: {:?}", request.identifier, e);
             return Err(e);
         }
@@ -86,7 +86,7 @@ impl OtpUseCase {
         // Retrieve and validate OTP
         let stored_otp = self
             .otp_cache
-            .get_otp(&request.identifier)
+            .get_otp(request.identifier.as_ref())
             .await?
             .ok_or(SystemError::OtpNotFound)?;
 
@@ -95,7 +95,7 @@ impl OtpUseCase {
         }
 
         // Mark OTP as used
-        self.otp_cache.invalidate_otp(&request.identifier).await?;
+        self.otp_cache.invalidate_otp(request.identifier.as_ref()).await?;
 
         // If this is for an existing user, mark as verified
         if let Ok(Some(mut user)) = self.user_repo.find_by_email(&request.identifier).await {
@@ -135,12 +135,14 @@ impl OtpUseCase {
         match request.identifier_type {
             IdentifierType::Email => Ok(self
                 .notification_publisher
-                .send_email_otp(&request.identifier, otp_code)
-                .await),
+                .as_ref()
+                .send_email_otp(&request.identifier.as_ref(), otp_code)
+                .await?),
             IdentifierType::Phone => Ok(self
                 .notification_publisher
-                .send_sms_otp(&request.identifier, otp_code)
-                .await),
+                .as_ref()
+                .send_sms_otp(request.identifier.as_ref(), otp_code)
+                .await?),
         }
     }
 }

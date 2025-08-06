@@ -3,6 +3,7 @@ use std::sync::Arc;
 use tokio::sync::broadcast;
 use futures::stream::StreamExt;
 use crate::config::messaging_config::MessagingConfig;
+use crate::events::{ExchangeType, RoutingKey};
 use crate::features::errors::{SystemError, SystemResult};
 
 #[derive(Clone)]
@@ -12,8 +13,16 @@ pub struct MessageBroker {
 }
 
 impl MessageBroker {
-    pub async fn new(config: MessagingConfig) -> SystemResult<Self> {
-        let connection = Connection::connect(&config.rabbitmq_url, ConnectionProperties::default())
+    fn get_channel(&self) -> &Channel {
+        self.channel.as_ref()
+    }
+
+    fn get_connection(&self) -> &Connection {
+        self.connection.as_ref()
+    }
+
+    pub async fn new(config: &MessagingConfig) -> SystemResult<Self> {
+        let connection = Connection::connect((&config.rabbitmq_url).as_ref(), ConnectionProperties::default())
             .await
             .map_err(|e| SystemError::MessageBrokerError(e.to_string()))?;
 
@@ -22,14 +31,30 @@ impl MessageBroker {
             .await
             .map_err(|e| SystemError::MessageBrokerError(e.to_string()))?;
 
+        // Declare custom exchanges
+        for exchange_type in [ExchangeType::Topic, ExchangeType::Fanout, ExchangeType::Direct, ExchangeType::Headers] {
+            channel
+                .exchange_declare(
+                    &exchange_type.to_string(),
+                    exchange_type.into(),
+                    ExchangeDeclareOptions {
+                        durable: true,
+                        ..Default::default()
+                    },
+                    FieldTable::default(),
+                )
+                .await
+                .map_err(|e| SystemError::MessageBrokerError(e.to_string()))?;
+        }
+
         Ok(Self {
             channel: Arc::new(channel),
             connection: Arc::new(connection),
         })
     }
 
-    pub async fn setup_queue(&self, queue_name: &str, routing_keys: &[&str], exchange_type: &str) -> SystemResult<()> {
-        self.channel
+    pub async fn setup_queue(&self, queue_name: &str, routing_keys: &[RoutingKey], exchange_type: ExchangeType) -> SystemResult<()> {
+        self.get_channel()
             .queue_declare(
                 queue_name,
                 QueueDeclareOptions {
@@ -41,38 +66,41 @@ impl MessageBroker {
             .await
             .map_err(|e| SystemError::MessageBrokerError(e.to_string()))?;
 
-        for routing_key in routing_keys {
-            self.channel
-                .queue_bind(
-                    queue_name,
-                    exchange_type,
-                    routing_key,
-                    QueueBindOptions::default(),
-                    FieldTable::default(),
-                )
-                .await
-                .map_err(|e| SystemError::MessageBrokerError(e.to_string()))?;
+        // Skip binding for fanout exchange if no routing keys are provided
+        if exchange_type != ExchangeType::Fanout || !routing_keys.is_empty() {
+            for routing_key in routing_keys {
+                self.get_channel()
+                    .queue_bind(
+                        queue_name,
+                        &exchange_type.to_string(),
+                        &routing_key.to_string(),
+                        QueueBindOptions::default(),
+                        FieldTable::default(),
+                    )
+                    .await
+                    .map_err(|e| SystemError::MessageBrokerError(e.to_string()))?;
+            }
         }
         Ok(())
     }
 
     pub async fn publish<T: serde::Serialize>(
         &self,
-        routing_key: &str,
+        routing_key: RoutingKey,
         payload: T,
-        exchange_type: &str,
+        exchange_type: ExchangeType,
     ) -> SystemResult<()> {
         let payload = serde_json::to_vec(&payload)
             .map_err(|e| SystemError::MessageBrokerError(format!("Failed to serialize payload: {}", e)))?;
-        println!("Publishing to {}: {:?}", routing_key, String::from_utf8_lossy(&payload));
+        println!("Publishing to {}: {:?}", routing_key.to_string(), String::from_utf8_lossy(payload.as_ref()));
 
         let confirm = self
-            .channel
+            .get_channel()
             .basic_publish(
-                exchange_type,
-                routing_key,
+                exchange_type.to_string().as_ref(),
+                routing_key.to_string().as_ref(),
                 BasicPublishOptions::default(),
-                &payload,
+                payload.as_ref(),
                 BasicProperties::default().with_delivery_mode(2),
             )
             .await
@@ -96,7 +124,7 @@ impl MessageBroker {
         Fut: std::future::Future<Output = SystemResult<()>> + Send,
     {
         let mut consumer = self
-            .channel
+            .get_channel()
             .basic_consume(
                 queue_name,
                 consumer_tag,
@@ -125,7 +153,7 @@ impl MessageBroker {
             }
         }
 
-        self.channel
+        self.get_channel()
             .basic_cancel(consumer_tag, BasicCancelOptions::default())
             .await
             .map_err(|e| SystemError::MessageBrokerError(e.to_string()))?;
@@ -134,11 +162,11 @@ impl MessageBroker {
     }
 
     pub async fn close(&self) -> SystemResult<()> {
-        self.channel
+        self.get_channel()
             .close(200, "Normal shutdown")
             .await
             .map_err(|e| SystemError::MessageBrokerError(e.to_string()))?;
-        self.connection
+        self.get_connection()
             .close(200, "Normal shutdown")
             .await
             .map_err(|e| SystemError::MessageBrokerError(e.to_string()))?;
