@@ -695,6 +695,7 @@ dependencies = [
  "shared",
  "sqlx",
  "thiserror",
+ "tokio",
  "tokio-amqp",
  "tonic",
  "tonic-build",
