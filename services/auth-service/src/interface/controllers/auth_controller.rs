@@ -2,7 +2,7 @@ use crate::application::use_cases::LoginUseCase;
 use actix_web::{web, HttpResponse, Result};
 use std::sync::Arc;
 use shared::entities::dtos::auth::auth::LoginRequest;
-use shared::features::errors::map_auth_error_to_response;
+use shared::features::errors::{map_auth_error_to_response, map_success_to_response};
 
 pub struct AuthController {
     login_use_case: Arc<LoginUseCase>,
@@ -13,13 +13,32 @@ impl AuthController {
         Self { login_use_case }
     }
 
-    pub async fn login(&self, req: web::Json<LoginRequest>) -> Result<HttpResponse> {
+    pub async fn login(
+        &self,
+        req: web::Json<LoginRequest>,
+        http_req: actix_web::HttpRequest,
+    ) -> Result<HttpResponse> {
+        // Get IP address
+        let ip_address = http_req
+            .connection_info()
+            .realip_remote_addr()
+            .map(|s| s.to_string())
+            .unwrap_or_default();
+
+        // Get User-Agent header
+        let user_agent = http_req
+            .headers()
+            .get(actix_web::http::header::USER_AGENT)
+            .and_then(|h| h.to_str().ok())
+            .map(|s| s.to_string());
+
         match self
             .login_use_case
-            .execute(req.into_inner(), "".to_string(), Some("".to_string()))
+            .as_ref()
+            .execute(req.into_inner(), ip_address, user_agent)
             .await
         {
-            Ok(response) => Ok(HttpResponse::Ok().json(response)),
+            Ok((response, success)) => Ok(map_success_to_response(success, Some(response), None)),
             Err(err) => Ok(map_auth_error_to_response(&err)),
         }
     }

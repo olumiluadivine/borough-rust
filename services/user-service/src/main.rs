@@ -19,9 +19,6 @@ async fn main() -> std::io::Result<()> {
     dotenv().ok();
     env_logger::init();
 
-    // Initialize tracing
-    shared::observability::init_tracing("user-service");
-
     let host = env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
     let port: u16 = env::var("PORT")
         .unwrap_or_else(|_| "8002".to_string())

@@ -1,6 +1,6 @@
 use actix_web::{web, HttpResponse, Result};
 use chrono::Utc;
-use shared::features::HealthResponse;
+use shared::entities::models::HealthResponse;
 
 pub async fn health_check() -> Result<HttpResponse> {
     let response = HealthResponse {

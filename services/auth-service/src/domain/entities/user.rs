@@ -16,7 +16,7 @@ pub struct User {
     pub is_active: bool,
     pub failed_login_attempts: i32,
     pub locked_until: Option<DateTime<Utc>>,
-    pub last_login: Option<DateTime<Utc>>,
+    pub last_login_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -34,7 +34,7 @@ impl User {
             is_active: true,
             failed_login_attempts: 0,
             locked_until: None,
-            last_login: None,
+            last_login_at: None,
             created_at: now,
             updated_at: now,
         }
@@ -78,7 +78,7 @@ impl User {
     pub fn reset_failed_attempts(&mut self) {
         self.failed_login_attempts = 0;
         self.locked_until = None;
-        self.last_login = Some(Utc::now());
+        self.last_login_at = Some(Utc::now());
         self.updated_at = Utc::now();
     }
 

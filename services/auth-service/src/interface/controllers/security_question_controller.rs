@@ -3,7 +3,7 @@ use actix_web::{web, HttpResponse, Result};
 use std::sync::Arc;
 use uuid::Uuid;
 use shared::entities::dtos::auth::question::{SetSecurityQuestionsRequest, VerifySecurityQuestionsRequest};
-use shared::features::errors::map_auth_error_to_response;
+use shared::features::errors::{map_auth_error_to_response, map_success_to_response};
 
 pub struct SecurityQuestionController {
     security_question_use_case: Arc<SecurityQuestionUseCase>,
@@ -23,10 +23,11 @@ impl SecurityQuestionController {
     ) -> Result<HttpResponse> {
         match self
             .security_question_use_case
+            .as_ref()
             .set_security_questions(path.into_inner(), req.into_inner())
             .await
         {
-            Ok(questions) => Ok(HttpResponse::Ok().json(questions)),
+            Ok(questions) => Ok(map_success_to_response::<()>(questions, None, None)),
             Err(err) => Ok(map_auth_error_to_response(&err)),
         }
     }
@@ -36,10 +37,11 @@ impl SecurityQuestionController {
 
         match self
             .security_question_use_case
+            .as_ref()
             .get_user_security_questions(user_id)
             .await
         {
-            Ok(questions) => Ok(HttpResponse::Ok().json(questions)),
+            Ok(questions) => Ok(map_success_to_response(questions.1, Some(questions.0), None)),
             Err(err) => Ok(map_auth_error_to_response(&err)),
         }
     }
@@ -47,10 +49,11 @@ impl SecurityQuestionController {
     pub async fn get_security_questions(&self) -> Result<HttpResponse> {
         match self
             .security_question_use_case
+            .as_ref()
             .get_available_questions()
             .await
         {
-            Ok(questions) => Ok(HttpResponse::Ok().json(questions)),
+            Ok(questions) => Ok(map_success_to_response(questions.1, Some(questions.0), None)),
             Err(err) => Ok(map_auth_error_to_response(&err)),
         }
     }
@@ -65,16 +68,11 @@ impl SecurityQuestionController {
 
         match self
             .security_question_use_case
+            .as_ref()
             .verify_security_questions(user_id, request)
             .await
         {
-            Ok(_) => {
-                // Verification passed
-                Ok(HttpResponse::Ok().json(serde_json::json!({
-                    "message": "Security questions verified successfully",
-                    "verified": true
-                })))
-            }
+            Ok(response) => Ok(map_success_to_response::<()>(response, None, None)),
             Err(err) => Ok(map_auth_error_to_response(&err)),
         }
     }
