@@ -30,7 +30,7 @@ async fn main() -> std::io::Result<()> {
 
     let (broker, publisher, shutdown_tx) = setup_messaging(&config).await.expect("Failed to setup messaging");
 
-    let use_cases = build_use_cases(&config, &db_pool, &redis_client, &Arc::new(publisher.clone()));
+    let use_cases = build_use_cases(&config, &db_pool, redis_client.clone(), &Arc::new(publisher.clone()));
 
     let controllers = build_controllers(use_cases);
 

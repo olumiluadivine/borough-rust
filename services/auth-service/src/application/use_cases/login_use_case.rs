@@ -9,7 +9,7 @@ use crate::domain::{
 use std::sync::Arc;
 use uuid::Uuid;
 use shared::entities::dtos::auth::auth::{LoginRequest, LoginResponse};
-use shared::features::errors::{SystemError, SystemResult};
+use shared::features::errors::{SuccessResponse, SystemError, SystemResult};
 use shared::features::helper::jwt_helper::JwtHelper;
 use shared::features::helper::password_helper::PasswordHelper;
 
@@ -49,28 +49,29 @@ impl LoginUseCase {
         request: LoginRequest,
         ip_address: String,
         user_agent: Option<String>,
-    ) -> SystemResult<LoginResponse> {
+    ) -> SystemResult<(LoginResponse, SuccessResponse)> {
         // Check rate limiting
-        self.check_rate_limiting(&request.identifier, &ip_address)
+        self.check_rate_limiting(request.identifier.as_ref(), ip_address.as_ref())
             .await?;
 
         // Find user
         let mut user = self
             .user_repo
-            .find_by_email(&request.identifier)
+            .as_ref()
+            .find_by_email(request.identifier.as_ref())
             .await?
             .ok_or(SystemError::InvalidCredentials)?;
 
         // Validate credentials
         let login_result = auth_domain_service::AuthDomainService::validate_login_credentials(
             &user,
-            &request.password,
+            request.password.as_ref(),
         );
 
         // Record login attempt
         let is_successful: bool = login_result.is_ok();
         let failure_reason: Option<String> = if let Err(ref e) = login_result {
-            Some("".to_string())
+            Some(e.to_string())
         } else {
             None
         };
@@ -85,7 +86,7 @@ impl LoginUseCase {
             None
         );
 
-        self.login_attempt_repo.create(&login_attempt).await?;
+        self.login_attempt_repo.as_ref().create(&login_attempt).await?;
 
         // Handle failed login
         if let Err(e) = login_result {
@@ -106,7 +107,7 @@ impl LoginUseCase {
             .cache_user_session(user.id, &access_token)
             .await?;
 
-        Ok(LoginResponse {
+        let response = LoginResponse {
             access_token,
             refresh_token,
             expires_in: 3600, // 1 hour
@@ -118,23 +119,26 @@ impl LoginUseCase {
             //     created_at: updated_user.created_at,
             //     phone_number: None,
             // },
-        })
+        };
+        Ok((response, SuccessResponse::Ok))
     }
 
-    async fn check_rate_limiting(&self, email: &str, ip_address: &str) -> SystemResult<()> {
+    async fn check_rate_limiting(&self, identifier: &str, ip_address: &str) -> SystemResult<()> {
         let since = chrono::Utc::now() - chrono::Duration::minutes(15);
 
-        let email_attempts = self
+        let identifier_attempts = self
             .login_attempt_repo
-            .get_failed_attempts_count(email, since)
+            .as_ref()
+            .get_failed_attempts_count(identifier, since)
             .await?;
 
         let ip_attempts = self
             .login_attempt_repo
+            .as_ref()
             .count_failed_attempts_by_ip(ip_address, since)
             .await?;
 
-        if email_attempts >= 5 || ip_attempts >= 10 {
+        if identifier_attempts >= 5 || ip_attempts >= 10 {
             return Err(SystemError::OtpRateLimitExceeded);
         }
 
@@ -177,6 +181,7 @@ impl LoginUseCase {
         );
 
         self.refresh_token_repo
+            .as_ref()
             .create(&refresh_token_entity)
             .await?;
 

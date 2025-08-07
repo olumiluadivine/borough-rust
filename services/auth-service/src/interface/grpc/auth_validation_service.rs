@@ -16,7 +16,7 @@ impl AuthValidationService {
     }
 
     pub async fn validate_token(&self, token: &str) -> Result<JwtClaims, Status> {
-        JwtHelper::validate_jwt(token, &self.jwt_secret)
+        JwtHelper::validate_jwt(token, self.jwt_secret.as_ref())
             .map_err(|_| Status::unauthenticated("Invalid security"))
     }
 
@@ -45,7 +45,7 @@ pub async fn validate_auth_token(
 ) -> Result<Response<AuthTokenResponse>, Status> {
     let req = request.into_inner();
 
-    match service.validate_token(&req.token).await {
+    match service.validate_token(req.token.as_ref()).await {
         Ok(claims) => {
             let response = AuthTokenResponse {
                 valid: true,
@@ -65,11 +65,11 @@ pub async fn check_user_permission(
     request: Request<PermissionRequest>,
 ) -> Result<Response<PermissionResponse>, Status> {
     let req = request.into_inner();
-    let user_id = Uuid::parse_str(&req.user_id)
+    let user_id = Uuid::parse_str(req.user_id.as_ref())
         .map_err(|_| Status::invalid_argument("Invalid user ID format"))?;
 
     match service
-        .validate_user_permission(user_id, &req.permission)
+        .validate_user_permission(user_id, req.permission.as_ref())
         .await
     {
         Ok(has_permission) => {

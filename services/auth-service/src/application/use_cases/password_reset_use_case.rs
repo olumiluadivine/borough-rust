@@ -3,7 +3,7 @@ use crate::domain::repositories::password_reset_repository::PasswordResetReposit
 use crate::domain::repositories::user_repository::UserRepository;
 use crate::domain::services::auth_domain_service::AuthDomainService;
 use crate::infrastructure::messaging::notification_publisher::NotificationPublisher;
-use shared::features::errors::{SystemError, SystemResult};
+use shared::features::errors::{SuccessResponse, SystemError, SystemResult};
 use std::sync::Arc;
 use uuid::Uuid;
 use shared::entities::dtos::auth::password::{PasswordResetConfirmRequest, PasswordResetRequest};
@@ -32,17 +32,21 @@ impl PasswordResetUseCase {
         }
     }
 
-    pub async fn request_password_reset(&self, request: PasswordResetRequest) -> SystemResult<()> {
+    pub async fn request_password_reset(&self, request: PasswordResetRequest) -> SystemResult<SuccessResponse> {
         // Find user by email
-        let user = self
+        let user = match self
             .user_repo
-            .find_by_email(&request.identifier)
-            .await?
-            .ok_or(SystemError::UserNotFound)?;
-
+            .as_ref()
+            .find_by_email(request.identifier.as_ref())
+            .await
+        {
+            Ok(user) => user.unwrap(),
+            Err(_) => return Err(SystemError::UserNotFound(request.identifier.clone())),
+        };
+        
         // Generate reset security
         let reset_token = OtpHelper::generate_reset_token();
-        let token_hash = PasswordHelper::hash_string(&reset_token)
+        let token_hash = PasswordHelper::hash_string(reset_token.as_ref())
             .map_err(|e| SystemError::InternalError(e.to_string()))?;
 
         // Store reset security
@@ -53,26 +57,28 @@ impl PasswordResetUseCase {
         );
 
         self.password_reset_repo
+            .as_ref()
             .create(&password_reset_token)
             .await?;
 
         // Send reset email
         self.notification_publisher
+            .as_ref()
             .send_password_reset_email(&user.email, &reset_token)
-            .await;
+            .await.expect("TODO: panic message");
 
-        Ok(())
+        Ok(SuccessResponse::Ok)
     }
 
     pub async fn confirm_password_reset(
         &self,
         request: PasswordResetConfirmRequest,
-    ) -> SystemResult<()> {
+    ) -> SystemResult<SuccessResponse>{
         // Validate new password
-        AuthDomainService::validate_new_password(&request.new_password)?;
+        AuthDomainService::validate_new_password(request.new_password.as_ref())?;
 
         // Hash the provided security
-        let token_hash = PasswordHelper::hash_string(&request.token)
+        let token_hash = PasswordHelper::hash_string(request.token.as_ref())
             .map_err(|e| SystemError::InternalError(e.to_string()))?;
 
         // Find and validate reset security
@@ -87,11 +93,15 @@ impl PasswordResetUseCase {
         }
 
         // Get user
-        let mut user = self
+        let mut user = match self
             .user_repo
-            .find_by_id(reset_token.user_id)
-            .await?
-            .ok_or(SystemError::UserNotFound)?;
+            .as_ref()
+            .find_by_id(&reset_token.user_id)
+            .await
+            {
+                Ok(user) => user.unwrap(),
+                Err(e) => return Err(SystemError::UserNotFound(e.to_string())),
+            };
 
         // Hash new password
         let new_password_hash = AuthDomainService::hash_password(&request.new_password)?;
@@ -112,11 +122,12 @@ impl PasswordResetUseCase {
         self.revoke_all_user_sessions(user.id).await?;
 
         // Send confirmation email
-        self.notification_publisher
+        let _ = self.notification_publisher
+            .as_ref()
             .send_password_changed_confirmation(&user.email)
             .await;
 
-        Ok(())
+        Ok(SuccessResponse::Ok)
     }
 
     async fn revoke_all_user_sessions(&self, user_id: Uuid) -> SystemResult<()> {

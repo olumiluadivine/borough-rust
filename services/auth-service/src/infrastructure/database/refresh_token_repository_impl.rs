@@ -2,15 +2,15 @@ use crate::domain::entities::refresh_token::RefreshToken;
 use crate::domain::repositories::refresh_token_repository::RefreshTokenRepository;
 use async_trait::async_trait;
 use shared::features::errors::SystemResult;
-use sqlx::PgPool;
+use sqlx::{Pool, Postgres};
 use uuid::Uuid;
 
 pub struct PostgresRefreshTokenRepository {
-    pool: PgPool,
+    pool: Pool<Postgres>,
 }
 
 impl PostgresRefreshTokenRepository {
-    pub fn new(pool: PgPool) -> Self {
+    pub fn new(pool: Pool<Postgres>) -> Self {
         Self { pool }
     }
 }
