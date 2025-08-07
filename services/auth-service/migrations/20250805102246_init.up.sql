@@ -46,16 +46,18 @@ CREATE TABLE password_reset_tokens (
 
 -- Login attempts with partitioning by month
 CREATE TABLE login_attempts (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    identifier VARCHAR(255) NOT NULL, -- email or phone
+    id UUID DEFAULT gen_random_uuid(),
+    identifier VARCHAR(255) NOT NULL,
     ip_address INET NOT NULL,
     user_agent TEXT,
     is_successful BOOLEAN NOT NULL,
     failure_reason VARCHAR(255),
     country VARCHAR(100),
     city VARCHAR(100),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC') NOT NULL
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC') NOT NULL,
+    PRIMARY KEY (id, created_at)
 ) PARTITION BY RANGE (created_at);
+
 
 -- Create monthly partitions for login_attempts (1 year of partitions)
 CREATE TABLE login_attempts_2025_01 PARTITION OF login_attempts
@@ -155,7 +157,7 @@ CREATE TABLE user_permissions (
 
 -- Audit logs with partitioning by month
 CREATE TABLE audit_logs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id) ON DELETE SET NULL,
     action VARCHAR(100) NOT NULL,
     resource_type VARCHAR(50),
@@ -165,7 +167,8 @@ CREATE TABLE audit_logs (
     ip_address INET,
     user_agent TEXT,
     metadata JSONB,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC') NOT NULL
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC') NOT NULL,
+    PRIMARY KEY (id, created_at)
 ) PARTITION BY RANGE (created_at);
 
 -- Create monthly partitions for audit_logs
@@ -206,6 +209,10 @@ CREATE TABLE audit_logs_2025_12 PARTITION OF audit_logs
 FOR VALUES FROM ('2025-12-01') TO ('2026-01-01');
 
 -- **PERFORMANCE INDEXES** --
+
+-- **ENABLE REQUIRED EXTENSIONS** --
+CREATE EXTENSION IF NOT EXISTS pg_trgm; -- For fuzzy text search
+CREATE EXTENSION IF NOT EXISTS btree_gin; -- For better GIN indexes
 
 -- Users' table indexes (optimized)
 CREATE UNIQUE INDEX idx_users_email_lower ON users(LOWER(email)) WHERE is_active = true;
@@ -280,16 +287,12 @@ CREATE INDEX idx_users_role_verified_active ON users(role, is_verified, is_activ
 CREATE INDEX idx_refresh_tokens_user_expires_revoked ON refresh_tokens(user_id, expires_at, is_revoked);
 CREATE INDEX idx_user_sessions_user_active_expires ON user_sessions(user_id, is_active, expires_at);
 
--- **ENABLE REQUIRED EXTENSIONS** --
-CREATE EXTENSION IF NOT EXISTS pg_trgm; -- For fuzzy text search
-CREATE EXTENSION IF NOT EXISTS btree_gin; -- For better GIN indexes
-
 -- **VACUUM AND ANALYZE SETTINGS** --
-ALTER TABLE users SET (autovacuum_vacuum_scale_factor = 0.1);
-ALTER TABLE login_attempts SET (autovacuum_vacuum_scale_factor = 0.05);
-ALTER TABLE audit_logs SET (autovacuum_vacuum_scale_factor = 0.05);
-ALTER TABLE refresh_tokens SET (autovacuum_vacuum_scale_factor = 0.1);
-ALTER TABLE user_sessions SET (autovacuum_vacuum_scale_factor = 0.1);
+-- ALTER TABLE users SET (autovacuum_vacuum_scale_factor = 0.1);
+-- ALTER TABLE login_attempts SET (autovacuum_vacuum_scale_factor = 0.05);
+-- ALTER TABLE audit_logs SET (autovacuum_vacuum_scale_factor = 0.05);
+-- ALTER TABLE refresh_tokens SET (autovacuum_vacuum_scale_factor = 0.1);
+-- ALTER TABLE user_sessions SET (autovacuum_vacuum_scale_factor = 0.1);
 
 -- **AUTOMATIC CLEANUP FUNCTIONS** --
 

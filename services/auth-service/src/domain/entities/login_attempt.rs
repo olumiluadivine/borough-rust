@@ -10,8 +10,8 @@ pub struct LoginAttempt {
     pub user_agent: Option<String>,
     pub is_successful: bool,
     pub failure_reason: Option<String>,
-    country: Option<String>,
-    city: Option<String>,
+    pub country: Option<String>,
+    pub city: Option<String>,
     pub created_at: DateTime<Utc>,
 }
 

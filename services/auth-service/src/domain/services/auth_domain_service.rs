@@ -10,7 +10,7 @@ impl AuthDomainService {
         user.can_login()?;
 
         // Verify password
-        let is_valid = PasswordHelper::verify_hashed_string(password, &user.password_hash)
+        let is_valid = PasswordHelper::verify_hashed_string(password, user.password_hash.as_ref())
             .map_err(|e| SystemError::InternalError(e.to_string()))?;
 
         if !is_valid {
@@ -21,7 +21,10 @@ impl AuthDomainService {
     }
 
     pub fn validate_new_password(password: &str) -> SystemResult<()> {
-        PasswordHelper::validate(password).map_err(|errors| SystemError::WeakPassword)?;
+        PasswordHelper::validate(password).map_err(|errors| {
+            let error_messages = errors.join(", ");
+            SystemError::WeakPassword(error_messages)
+        })?;
         Ok(())
     }
 

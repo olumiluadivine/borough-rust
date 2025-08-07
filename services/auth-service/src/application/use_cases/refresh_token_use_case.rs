@@ -2,7 +2,7 @@ use crate::cache::auth_cache::AuthCacheService;
 use crate::domain::entities::refresh_token::RefreshToken;
 use crate::domain::repositories::refresh_token_repository::RefreshTokenRepository;
 use crate::domain::repositories::user_repository::UserRepository;
-use shared::features::errors::{SystemError, SystemResult};
+use shared::features::errors::{SuccessResponse, SystemError, SystemResult};
 use std::sync::Arc;
 use uuid::Uuid;
 use shared::entities::dtos::auth::auth::LoginResponse;
@@ -32,14 +32,15 @@ impl RefreshTokenUseCase {
         }
     }
 
-    pub async fn execute(&self, request: RefreshTokenRequest) -> SystemResult<LoginResponse> {
+    pub async fn execute(&self, request: RefreshTokenRequest) -> SystemResult<(LoginResponse, SuccessResponse)> {
         // Hash the provided refresh security
-        let token_hash = PasswordHelper::hash_string(&request.refresh_token)
+        let token_hash = PasswordHelper::hash_string(request.refresh_token.as_ref())
             .map_err(|e| SystemError::InternalError(e.to_string()))?;
 
         // Find the refresh security
         let mut refresh_token = self
             .refresh_token_repo
+            .as_ref()
             .find_by_token_hash(&token_hash)
             .await?
             .ok_or(SystemError::InvalidRefreshToken)?;
@@ -50,11 +51,15 @@ impl RefreshTokenUseCase {
         }
 
         // Get the user
-        let user = self
+        let user = match self
             .user_repo
-            .find_by_id(refresh_token.user_id)
-            .await?
-            .ok_or(SystemError::UserNotFound)?;
+            .as_ref()
+            .find_by_id(&refresh_token.user_id)
+            .await
+            {
+                Ok(user) => user.unwrap(),
+                Err(_) => return Err(SystemError::UserNotFound(refresh_token.user_id.to_string())),
+            };
 
         // Check if user can still log in
         user.can_login()?;
@@ -92,25 +97,18 @@ impl RefreshTokenUseCase {
             chrono::Utc::now() + chrono::Duration::days(30)
         );
 
-        self.refresh_token_repo.create(&new_refresh_token).await?;
+        self.refresh_token_repo.as_ref().create(&new_refresh_token).await?;
 
         // Cache new session
         self.cache_service
             .cache_user_session(user.id, &new_access_token)
             .await?;
 
-        Ok(LoginResponse {
+        let response = LoginResponse {
             access_token: new_access_token,
             refresh_token: new_refresh_token_value,
             expires_in: 3600,
-            // user_info: UserInfo {
-            //     id: user.id,
-            //     email: user.email,
-            //     role: user.role,
-            //     is_verified: user.is_verified,
-            //     created_at: user.created_at,
-            //     phone_number: None,
-            // },
-        })
+        };
+        Ok((response, SuccessResponse::Ok))
     }
 }

@@ -24,7 +24,7 @@ pub struct UseCases {
 pub fn build_use_cases(
     config: &AppConfig,
     db_pool: &Pool<Postgres>,
-    redis_client: &Arc<deadpool_redis::Pool>,
+    redis_client: Arc<deadpool_redis::Pool>,
     notification_publisher: &Arc<NotificationPublisher>,
 ) -> UseCases {
     let user_repo = Arc::new(PostgresUserRepository::new(db_pool.clone()));

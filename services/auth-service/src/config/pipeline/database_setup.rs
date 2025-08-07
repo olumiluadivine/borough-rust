@@ -9,6 +9,6 @@ pub async fn create_database_pool(
         .min_connections(config.database.min_connections)
         .acquire_timeout(Duration::from_secs(config.database.connect_timeout))
         .idle_timeout(Duration::from_secs(config.database.idle_timeout))
-        .connect(&config.database.url)
+        .connect(&config.database.url.as_ref())
         .await
 }

@@ -1,7 +1,7 @@
 use crate::cache::otp_cache::OtpCacheService;
 use crate::domain::repositories::user_repository::UserRepository;
 use crate::infrastructure::messaging::notification_publisher::NotificationPublisher;
-use shared::features::errors::{SystemError, SystemResult};
+use shared::features::errors::{SuccessResponse, SystemError, SystemResult};
 use std::sync::Arc;
 use log::{info, debug, warn, error};
 use shared::entities::dtos::auth::otp::{SendOtpRequest, VerifyOtpRequest};
@@ -30,7 +30,7 @@ impl OtpUseCase {
         }
     }
 
-    pub async fn send_otp(&self, request: SendOtpRequest) -> SystemResult<()> {
+    pub async fn send_otp(&self, request: SendOtpRequest) -> SystemResult<SuccessResponse> {
         info!("Received OTP request for identifier: {} [{:?}]", request.identifier, request.identifier_type);
 
         // Check rate limiting
@@ -79,10 +79,10 @@ impl OtpUseCase {
         }
         info!("OTP notification sent successfully to identifier: {}", request.identifier);
 
-        Ok(())
+        Ok(SuccessResponse::Ok)
     }
 
-    pub async fn verify_otp(&self, request: VerifyOtpRequest) -> SystemResult<()> {
+    pub async fn verify_otp(&self, request: VerifyOtpRequest) -> SystemResult<SuccessResponse> {
         // Retrieve and validate OTP
         let stored_otp = self
             .otp_cache
@@ -91,7 +91,7 @@ impl OtpUseCase {
             .ok_or(SystemError::OtpNotFound)?;
 
         if stored_otp != request.otp_code {
-            return Err(SystemError::InvalidOtp);
+            return Err(SystemError::InvalidOtp(request.otp_code.clone()));
         }
 
         // Mark OTP as used
@@ -110,7 +110,7 @@ impl OtpUseCase {
             }
         }
 
-        Ok(())
+        Ok(SuccessResponse::Ok)
     }
 
     fn validate_email_format(&self, email: &str) -> SystemResult<()> {

@@ -2,7 +2,7 @@ use crate::application::use_cases::RefreshTokenUseCase;
 use actix_web::{web, HttpResponse, Result};
 use std::sync::Arc;
 use shared::entities::dtos::auth::token::RefreshTokenRequest;
-use shared::features::errors::map_auth_error_to_response;
+use shared::features::errors::{map_auth_error_to_response, map_success_to_response};
 
 pub struct RefreshTokenController {
     refresh_token_use_case: Arc<RefreshTokenUseCase>,
@@ -19,8 +19,8 @@ impl RefreshTokenController {
         &self,
         req: web::Json<RefreshTokenRequest>,
     ) -> Result<HttpResponse> {
-        match self.refresh_token_use_case.execute(req.into_inner()).await {
-            Ok(response) => Ok(HttpResponse::Ok().json(response)),
+        match self.refresh_token_use_case.as_ref().execute(req.into_inner()).await {
+            Ok(response) => Ok(map_success_to_response(response.1, Some(response.0), None)),
             Err(err) => Ok(map_auth_error_to_response(&err)),
         }
     }

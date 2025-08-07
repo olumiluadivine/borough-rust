@@ -2,7 +2,7 @@ use crate::domain::repositories::security_repository::{
     SecurityQuestionRepository, UserSecurityQuestionRepository,
 };
 use crate::domain::services::security_domain_service::SecurityDomainService;
-use shared::features::errors::{SystemError, SystemResult};
+use shared::features::errors::{SuccessResponse, SystemError, SystemResult};
 use std::sync::Arc;
 use uuid::Uuid;
 use shared::entities::dtos::auth::question::{SecurityQuestion, SecurityQuestionAnswer, SetSecurityQuestionsRequest, VerifySecurityQuestionsRequest};
@@ -24,23 +24,25 @@ impl SecurityQuestionUseCase {
         }
     }
 
-    pub async fn get_available_questions(&self) -> SystemResult<Vec<SecurityQuestion>> {
+    pub async fn get_available_questions(&self) -> SystemResult<(Vec<SecurityQuestion>, SuccessResponse)> {
         let questions = self.security_question_repo.get_active_questions().await?;
 
-        Ok(questions
+        let response = questions
             .into_iter()
             .map(|q| SecurityQuestion {
                 id: q.id,
                 question: q.question,
             })
-            .collect())
+            .collect();
+
+        Ok((response, SuccessResponse::Ok))
     }
 
     pub async fn set_security_questions(
         &self,
         user_id: Uuid,
         request: SetSecurityQuestionsRequest,
-    ) -> SystemResult<()> {
+    ) -> SystemResult<SuccessResponse> {
         // Validate the request
         let questions_answers: Vec<(Uuid, String)> = request
             .questions
@@ -75,18 +77,19 @@ impl SecurityQuestionUseCase {
                 UserSecurityQuestion::new(user_id, question_id, answer_hash);
 
             self.user_security_question_repo
+                .as_ref()
                 .create(&user_security_question)
                 .await?;
         }
 
-        Ok(())
+        Ok(SuccessResponse::Ok)
     }
 
     pub async fn verify_security_questions(
         &self,
         user_id: Uuid,
         request: VerifySecurityQuestionsRequest,
-    ) -> SystemResult<()> {
+    ) -> SystemResult<SuccessResponse> {
         // Get user's security questions
         let user_questions = self
             .user_security_question_repo
@@ -107,13 +110,13 @@ impl SecurityQuestionUseCase {
         // Validate answers
         SecurityDomainService::validate_security_answers(&user_questions, &provided_answers)?;
 
-        Ok(())
+        Ok(SuccessResponse::Ok)
     }
 
     pub async fn get_user_security_questions(
         &self,
         user_id: Uuid,
-    ) -> SystemResult<Vec<SecurityQuestion>> {
+    ) -> SystemResult<(Vec<SecurityQuestion>, SuccessResponse)> {
         let user_questions = self
             .user_security_question_repo
             .find_by_user_id(user_id)
@@ -134,6 +137,6 @@ impl SecurityQuestionUseCase {
             }
         }
 
-        Ok(result)
+        Ok((result, SuccessResponse::Ok))
     }
 }

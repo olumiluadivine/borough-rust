@@ -15,8 +15,9 @@ use shared::entities::dtos::auth::token::RefreshTokenRequest;
 pub async fn login(
     controller: web::Data<Controllers>,
     req: web::Json<LoginRequest>,
+    http_req: actix_web::HttpRequest,
 ) -> actix_web::Result<actix_web::HttpResponse> {
-    controller.auth.login(req).await
+    controller.auth.login(req, http_req).await
 }
 
 #[post("/logout")]
